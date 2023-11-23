@@ -1993,7 +1993,7 @@ class WhisperForConditionalGeneration(WhisperPreTrainedModel):
                     "or update the generation config as per the instructions https://github.com/huggingface/transformers/issues/25084#issuecomment-1664398224"
                 )
             language = language.lower()
-            generation_config.language = language
+        generation_config.language = language
         if task is not None:
             if not hasattr(generation_config, "task_to_id"):
                 raise ValueError(
@@ -2016,37 +2016,36 @@ class WhisperForConditionalGeneration(WhisperPreTrainedModel):
         else:
             forced_decoder_ids = kwargs.get("forced_decoder_ids", None)
 
-        if task is not None or language is not None or (forced_decoder_ids is None and prompt_ids is not None):
-            forced_decoder_ids = []
-            if hasattr(generation_config, "language"):
-                if generation_config.language in generation_config.lang_to_id.keys():
-                    language_token = generation_config.language
-                elif generation_config.language in TO_LANGUAGE_CODE.keys():
-                    language_token = f"<|{TO_LANGUAGE_CODE[generation_config.language]}|>"
-                elif generation_config.language in TO_LANGUAGE_CODE.values():
-                    language_token = f"<|{generation_config.language}|>"
-                else:
-                    is_language_code = len(generation_config.language) == 2
-                    raise ValueError(
-                        f"Unsupported language: {generation_config.language}. Language should be one of:"
-                        f" {list(TO_LANGUAGE_CODE.values()) if is_language_code else list(TO_LANGUAGE_CODE.keys())}."
-                    )
-                forced_decoder_ids.append((1, generation_config.lang_to_id[language_token]))
+        forced_decoder_ids = []
+        if hasattr(generation_config, "language") and generation_config.language is not None:
+            if generation_config.language in generation_config.lang_to_id.keys():
+                language_token = generation_config.language
+            elif generation_config.language in TO_LANGUAGE_CODE.keys():
+                language_token = f"<|{TO_LANGUAGE_CODE[generation_config.language]}|>"
+            elif generation_config.language in TO_LANGUAGE_CODE.values():
+                language_token = f"<|{generation_config.language}|>"
             else:
-                forced_decoder_ids.append((1, None))  # automatically detect the language
+                is_language_code = len(generation_config.language) == 2
+                raise ValueError(
+                    f"Unsupported language: {generation_config.language}. Language should be one of:"
+                    f" {list(TO_LANGUAGE_CODE.values()) if is_language_code else list(TO_LANGUAGE_CODE.keys())}."
+                )
+            forced_decoder_ids.append((1, generation_config.lang_to_id[language_token]))
+        else:
+            forced_decoder_ids.append((1, None))  # automatically detect the language
 
-            if hasattr(generation_config, "task"):
-                if generation_config.task in TASK_IDS:
-                    forced_decoder_ids.append((2, generation_config.task_to_id[generation_config.task]))
-                else:
-                    raise ValueError(
-                        f"The `{generation_config.task}`task is not supported. The task should be one of `{TASK_IDS}`"
-                    )
-            elif hasattr(generation_config, "task_to_id"):
-                forced_decoder_ids.append((2, generation_config.task_to_id["transcribe"]))  # defaults to transcribe
-            if hasattr(generation_config, "no_timestamps_token_id") and not generation_config.return_timestamps:
-                idx = forced_decoder_ids[-1][0] + 1 if forced_decoder_ids else 1
-                forced_decoder_ids.append((idx, generation_config.no_timestamps_token_id))
+        if hasattr(generation_config, "task"):
+            if generation_config.task in TASK_IDS:
+                forced_decoder_ids.append((2, generation_config.task_to_id[generation_config.task]))
+            else:
+                raise ValueError(
+                    f"The `{generation_config.task}`task is not supported. The task should be one of `{TASK_IDS}`"
+                )
+        elif hasattr(generation_config, "task_to_id"):
+            forced_decoder_ids.append((2, generation_config.task_to_id["transcribe"]))  # defaults to transcribe
+        if hasattr(generation_config, "no_timestamps_token_id") and not generation_config.return_timestamps:
+            idx = forced_decoder_ids[-1][0] + 1 if forced_decoder_ids else 1
+            forced_decoder_ids.append((idx, generation_config.no_timestamps_token_id))
 
         if forced_decoder_ids is not None:
             generation_config.forced_decoder_ids = forced_decoder_ids
